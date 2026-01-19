@@ -43,7 +43,6 @@ function App() {
   const [status, setStatus] = useState('Add a photo to begin.')
   const [isProcessing, setIsProcessing] = useState(false)
   const [isSending, setIsSending] = useState(false)
-  const [apiKeyInput, setApiKeyInput] = useState('')
 
   const workerRef = useRef<Worker | null>(null)
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined
@@ -113,18 +112,11 @@ function App() {
         timestamp: new Date().toISOString(),
       }
 
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      }
-
-      const trimmedKey = apiKeyInput.trim()
-      if (trimmedKey) headers['x-api-key'] = trimmedKey
-
       const response = await fetch(
         endpoint,
         {
           method: 'POST',
-          headers,
+          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify(payload),
         },
@@ -227,20 +219,6 @@ function App() {
             <h2>2. OCR</h2>
             <p>Run Tesseract.js locally in the browser.</p>
           </div>
-          <label className="field">
-            <span className="field-label">API key (sent once as x-api-key)</span>
-            <input
-              value={apiKeyInput}
-              onChange={(e) => setApiKeyInput(e.target.value)}
-              placeholder="Paste API key"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <span className="field-hint">
-              First request sends this header; Lambda can set an HttpOnly cookie so
-              subsequent calls reuse it.
-            </span>
-          </label>
           <div className="actions">
             <button
               className="primary"

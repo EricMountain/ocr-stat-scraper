@@ -80,6 +80,7 @@ resource "aws_lambda_function" "ocr" {
       DYNAMO_TABLE  = aws_dynamodb_table.api_keys.name
       DYNAMO_GSI    = "device_id-index"
       DYNAMO_REGION = var.aws_region
+      SCAN_PATTERNS = jsonencode(var.scan_patterns)
     }
   }
 }

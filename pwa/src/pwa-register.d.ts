@@ -1,3 +1,9 @@
 declare module 'virtual:pwa-register' {
-    export function registerSW(options?: { immediate?: boolean }): void
+    type RegisterSWOptions = {
+        immediate?: boolean
+        onNeedRefresh?: () => void
+        onOfflineReady?: () => void
+    }
+
+    export function registerSW(options?: RegisterSWOptions): void
 }

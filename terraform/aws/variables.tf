@@ -21,3 +21,9 @@ variable "table_name" {
   type        = string
   default     = "ocr-stat-scraper-api-keys"
 }
+
+variable "scan_patterns" {
+  description = "List of regex patterns (strings) to scan incoming payload text"
+  type        = list(string)
+  default     = []
+}
