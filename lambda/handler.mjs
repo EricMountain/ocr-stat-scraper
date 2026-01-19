@@ -120,6 +120,13 @@ export const handler = async (event) => {
     }
 
     if (method === 'GET') {
+        if (rawPath === '/config') {
+            if (!isAuthorized) {
+                return json(401, { error: 'Unauthorized' }, corsHeaders(origin))
+            }
+            return json(200, { scanPatterns: patternStrings }, corsHeaders(origin))
+        }
+
         if (!isAuthorized) {
             return json(401, { error: 'Unauthorized' }, corsHeaders(origin))
         }
