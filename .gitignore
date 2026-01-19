@@ -35,3 +35,15 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+# Frontend build artifacts
+pwa/node_modules/
+pwa/dist/
+
+# Lambda build artifacts
+lambda/dist/
+terraform/aws/lambda.zip
+
+# Terraform working dir per env
+terraform/aws/.terraform/
+terraform/aws/terraform.tfstate*

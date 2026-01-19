@@ -1,4 +1,5 @@
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
+import type { ChangeEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createWorker, type Worker } from 'tesseract.js'
 import './App.css'
 
@@ -42,6 +43,7 @@ function App() {
   const [status, setStatus] = useState('Add a photo to begin.')
   const [isProcessing, setIsProcessing] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [apiKeyInput, setApiKeyInput] = useState('')
 
   const workerRef = useRef<Worker | null>(null)
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined
@@ -97,15 +99,13 @@ function App() {
       return
     }
 
-    if (!apiBaseUrl) {
-      setStatus('Set VITE_API_BASE_URL to enable sending.')
-      return
-    }
-
     setIsSending(true)
     setStatus('Sending to backend...')
 
     try {
+      const base = apiBaseUrl?.replace(/\/$/, '') ?? ''
+      const endpoint = base ? `${base}/readings` : '/readings'
+
       const payload = {
         ...parsed,
         imageName: imageName || 'capture',
@@ -113,11 +113,19 @@ function App() {
         timestamp: new Date().toISOString(),
       }
 
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+
+      const trimmedKey = apiKeyInput.trim()
+      if (trimmedKey) headers['x-api-key'] = trimmedKey
+
       const response = await fetch(
-        `${apiBaseUrl.replace(/\/$/, '')}/readings`,
+        endpoint,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
+          credentials: 'include',
           body: JSON.stringify(payload),
         },
       )
@@ -126,7 +134,7 @@ function App() {
         throw new Error(`HTTP ${response.status}`)
       }
 
-      setStatus('Payload sent to backend.')
+      setStatus('Payload sent to backend (cookie set if header was valid).')
     } catch (error) {
       setStatus(`Send failed: ${(error as Error).message}`)
     } finally {
@@ -219,6 +227,20 @@ function App() {
             <h2>2. OCR</h2>
             <p>Run Tesseract.js locally in the browser.</p>
           </div>
+          <label className="field">
+            <span className="field-label">API key (sent once as x-api-key)</span>
+            <input
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
+              placeholder="Paste API key"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <span className="field-hint">
+              First request sends this header; Lambda can set an HttpOnly cookie so
+              subsequent calls reuse it.
+            </span>
+          </label>
           <div className="actions">
             <button
               className="primary"
@@ -243,7 +265,7 @@ function App() {
             ))}
           </div>
           <p className="hint">
-            Backend URL: {apiBaseUrl ? apiBaseUrl : 'set VITE_API_BASE_URL'}
+            Backend URL: {apiBaseUrl ? apiBaseUrl : 'relative /readings (Function URL)'}
           </p>
         </section>
 

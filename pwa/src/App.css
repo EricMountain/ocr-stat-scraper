@@ -158,6 +158,36 @@ h1 {
   flex-wrap: wrap;
 }
 
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.field-label {
+  font-weight: 600;
+}
+
+.field input {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-muted);
+  color: var(--text);
+  font-size: 15px;
+}
+
+.field input:focus {
+  outline: 1px solid var(--accent);
+  border-color: var(--accent);
+}
+
+.field-hint {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 button {
   padding: 10px 14px;
   border-radius: 12px;
