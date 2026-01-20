@@ -156,7 +156,6 @@ function App() {
         <section className="card span-2">
           <div className="card-head">
             <h2>Enter values and submit</h2>
-            <p>Values defined in terraform (name/type).</p>
           </div>
           {fields.length === 0 ? (
             <p className="hint">No fields returned from /config.</p>
