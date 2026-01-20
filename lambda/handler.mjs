@@ -31,6 +31,15 @@ const readFileCached = (filePath) => {
     return data
 }
 
+const injectFieldDefs = (html) => {
+    const serialized = JSON.stringify(fieldDefs).replace(/</g, '\\u003c')
+    const payload = `window.__FIELD_DEFS__=${serialized};`
+    if (html.includes('</head>')) {
+        return html.replace('</head>', `<script>${payload}</script></head>`)
+    }
+    return `<script>${payload}</script>${html}`
+}
+
 const contentType = (file) => {
     if (file.endsWith('.html')) return 'text/html; charset=utf-8'
     if (file.endsWith('.js')) return 'application/javascript; charset=utf-8'
@@ -135,13 +144,14 @@ export const handler = async (event) => {
             return notFound(corsHeaders(origin))
         }
 
-        const data = readFileCached(filePath)
         const isHtml = filePath.endsWith('.html')
         const setCookie = (headerKey || queryKey)
             ? `api_key=${encodeURIComponent(headerKey || queryKey)}; HttpOnly; Secure; Path=/; SameSite=Lax; Max-Age=2592000`
             : undefined
+        const rawData = readFileCached(filePath)
+        const bodyBuffer = isHtml ? Buffer.from(injectFieldDefs(rawData.toString('utf-8'))) : rawData
 
-        return ok(data.toString('base64'), {
+        return ok(bodyBuffer.toString('base64'), {
             ...corsHeaders(origin),
             'Content-Type': contentType(filePath),
             'Cache-Control': isHtml ? 'no-store' : exists ? 'public, max-age=3600' : 'no-cache',

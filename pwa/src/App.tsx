@@ -8,6 +8,12 @@ type FieldDef = {
   type: FieldType
 }
 
+declare global {
+  interface Window {
+    __FIELD_DEFS__?: FieldDef[]
+  }
+}
+
 type DurationValue = {
   hours: string
   minutes: string
@@ -16,7 +22,8 @@ type DurationValue = {
 const pad2 = (v: string) => (v.length === 1 ? `0${v}` : v || '00')
 
 function App() {
-  const [fields, setFields] = useState<FieldDef[]>([])
+  const initialFields = typeof window !== 'undefined' && Array.isArray(window.__FIELD_DEFS__) ? window.__FIELD_DEFS__ : []
+  const [fields] = useState<FieldDef[]>(initialFields)
   const [numberValues, setNumberValues] = useState<Record<string, string>>({})
   const [durationValues, setDurationValues] = useState<Record<string, DurationValue>>({})
   const [booleanValues, setBooleanValues] = useState<Record<string, string>>({})
@@ -27,33 +34,19 @@ function App() {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined
 
   useEffect(() => {
-    const loadFields = async () => {
-      try {
-        const base = apiBaseUrl?.replace(/\/$/, '') ?? ''
-        const endpoint = base ? `${base}/config` : '/config'
-        const resp = await fetch(endpoint, { credentials: 'include' })
-        if (!resp.ok) return
-        const json = await resp.json()
-        if (Array.isArray(json.fields)) {
-          setFields(json.fields)
-          const nums: Record<string, string> = {}
-          const durations: Record<string, DurationValue> = {}
-          const bools: Record<string, string> = {}
-          json.fields.forEach((f: FieldDef) => {
-            if (f.type === 'number') nums[f.name] = ''
-            if (f.type === 'duration') durations[f.name] = { hours: '', minutes: '' }
-            if (f.type === 'boolean') bools[f.name] = 'ok'
-          })
-          setNumberValues(nums)
-          setDurationValues(durations)
-          setBooleanValues(bools)
-        }
-      } catch {
-        // ignore load errors
-      }
-    }
-    loadFields()
-  }, [apiBaseUrl])
+    if (!fields.length) return
+    const nums: Record<string, string> = {}
+    const durations: Record<string, DurationValue> = {}
+    const bools: Record<string, string> = {}
+    fields.forEach((f: FieldDef) => {
+      if (f.type === 'number') nums[f.name] = ''
+      if (f.type === 'duration') durations[f.name] = { hours: '', minutes: '' }
+      if (f.type === 'boolean') bools[f.name] = 'ok'
+    })
+    setNumberValues(nums)
+    setDurationValues(durations)
+    setBooleanValues(bools)
+  }, [fields])
 
   const focusNextField = (currentName: string) => {
     const idx = fields.findIndex((f) => f.name === currentName)
