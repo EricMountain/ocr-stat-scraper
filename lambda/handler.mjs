@@ -1,10 +1,11 @@
 import fs from 'fs'
 import path from 'path'
-import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb'
+import { DynamoDBClient, GetItemCommand, PutItemCommand } from '@aws-sdk/client-dynamodb'
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname)
 const distDir = path.join(__dirname, 'dist')
 const dynamoTable = process.env.DYNAMO_TABLE
+const readingsTable = process.env.READINGS_TABLE
 const dynamoRegion = process.env.DYNAMO_REGION || process.env.AWS_REGION
 const formFieldsRaw = process.env.FORM_FIELDS || '[]'
 
@@ -110,8 +111,10 @@ export const handler = async (event) => {
     const suppliedKey = headerKey || queryKey || cookieKey
 
     let isAuthorized = false
+    let authorizedRecord = null
     try {
         const record = await fetchApiKey(suppliedKey)
+        authorizedRecord = record
         isAuthorized = Boolean(record)
     } catch (error) {
         console.error('API key lookup failed', error)
@@ -180,18 +183,18 @@ export const handler = async (event) => {
                 return null
             }
 
-            const coerceDuration = (value) => {
+            const coerceDurationMinutes = (value) => {
                 if (value && typeof value === 'object') {
                     const h = Number(value.hours ?? value.h ?? 0)
                     const m = Number(value.minutes ?? value.m ?? 0)
-                    if (Number.isFinite(h) && Number.isFinite(m)) return { hours: h, minutes: m, totalMinutes: h * 60 + m }
+                    if (Number.isFinite(h) && Number.isFinite(m)) return h * 60 + m
                 }
                 if (typeof value === 'string') {
                     const match = value.match(/^(\d{1,2}):(\d{1,2})$/)
                     if (match) {
                         const h = Number(match[1])
                         const m = Number(match[2])
-                        if (Number.isFinite(h) && Number.isFinite(m)) return { hours: h, minutes: m, totalMinutes: h * 60 + m }
+                        if (Number.isFinite(h) && Number.isFinite(m)) return h * 60 + m
                     }
                 }
                 return null
@@ -207,9 +210,9 @@ export const handler = async (event) => {
                         errors.push(`Field ${def.name} must be a number`)
                     }
                 } else if (def.type === 'duration') {
-                    const dur = coerceDuration(raw)
-                    if (dur) {
-                        normalized[def.name] = dur
+                    const durMinutes = coerceDurationMinutes(raw)
+                    if (durMinutes !== null) {
+                        normalized[def.name] = durMinutes
                     } else {
                         errors.push(`Field ${def.name} must be duration (hours/minutes or HH:MM)`)
                     }
@@ -229,13 +232,44 @@ export const handler = async (event) => {
                 return json(400, { error: 'Invalid payload', details: errors }, corsHeaders(origin))
             }
 
+            if (!authorizedRecord?.device_id?.S) {
+                return json(500, { error: 'Device mapping unavailable' }, corsHeaders(origin))
+            }
+
+            if (!readingsTable) {
+                return json(500, { error: 'Readings table not configured' }, corsHeaders(origin))
+            }
+
+            const receivedAt = new Date().toISOString()
+            const deviceId = authorizedRecord.device_id.S
+            const valuesMap = Object.fromEntries(
+                Object.entries(normalized).map(([key, value]) => {
+                    if (typeof value === 'number') return [key, { N: value.toString() }]
+                    return [key, { BOOL: Boolean(value) }]
+                }),
+            )
+
+            try {
+                await ddb.send(new PutItemCommand({
+                    TableName: readingsTable,
+                    Item: {
+                        device_id: { S: deviceId },
+                        reading_ts: { S: receivedAt },
+                        values: { M: valuesMap },
+                    },
+                }))
+            } catch (error) {
+                console.error('Failed to persist reading', error)
+                return json(500, { error: 'Could not save reading' }, corsHeaders(origin))
+            }
+
             const setCookie = (headerKey || queryKey)
                 ? `api_key=${encodeURIComponent(headerKey || queryKey)}; HttpOnly; Secure; Path=/; SameSite=Lax; Max-Age=2592000`
                 : undefined
 
             return json(
                 200,
-                { ok: true, receivedAt: new Date().toISOString(), data: normalized },
+                { ok: true, receivedAt, deviceId, data: normalized },
                 {
                     ...corsHeaders(origin),
                     ...(setCookie ? { 'Set-Cookie': setCookie } : {}),

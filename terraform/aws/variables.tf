@@ -19,7 +19,13 @@ variable "log_retention_days" {
 variable "table_name" {
   description = "DynamoDB table name"
   type        = string
-  default     = "ocr-stat-scraper-api-keys"
+  default     = "stat-scraper-api-keys"
+}
+
+variable "readings_table_name" {
+  description = "DynamoDB readings table name"
+  type        = string
+  default     = "stat-scraper-readings"
 }
 
 variable "form_fields" {

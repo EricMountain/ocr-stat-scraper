@@ -55,7 +55,12 @@ data "aws_iam_policy_document" "lambda_dynamodb" {
       "dynamodb:BatchGetItem",
       "dynamodb:BatchWriteItem",
     ]
-    resources = [aws_dynamodb_table.api_keys.arn, "${aws_dynamodb_table.api_keys.arn}/*"]
+    resources = [
+      aws_dynamodb_table.api_keys.arn,
+      "${aws_dynamodb_table.api_keys.arn}/*",
+      aws_dynamodb_table.readings.arn,
+      "${aws_dynamodb_table.readings.arn}/*",
+    ]
   }
 }
 
@@ -77,10 +82,11 @@ resource "aws_lambda_function" "ocr" {
 
   environment {
     variables = {
-      DYNAMO_TABLE  = aws_dynamodb_table.api_keys.name
-      DYNAMO_GSI    = "device_id-index"
-      DYNAMO_REGION = var.aws_region
-      FORM_FIELDS   = jsonencode(var.form_fields)
+      DYNAMO_TABLE   = aws_dynamodb_table.api_keys.name
+      READINGS_TABLE = aws_dynamodb_table.readings.name
+      DYNAMO_GSI     = "device_id-index"
+      DYNAMO_REGION  = var.aws_region
+      FORM_FIELDS    = jsonencode(var.form_fields)
     }
   }
 }
