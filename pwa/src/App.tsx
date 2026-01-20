@@ -238,7 +238,6 @@ function App() {
               <p className="status-text">{status}</p>
             </div>
           </div>
-          <p className="hint">Backend URL: {apiBaseUrl ? apiBaseUrl : 'relative /readings (Function URL)'}</p>
         </section>
       </div>
     </div>
