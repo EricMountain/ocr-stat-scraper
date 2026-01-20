@@ -70,7 +70,7 @@ resource "aws_lambda_function" "ocr" {
   function_name    = var.lambda_name
   role             = aws_iam_role.lambda.arn
   handler          = "handler.handler"
-  runtime          = "nodejs20.x"
+  runtime          = "nodejs22.x"
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   publish          = true
