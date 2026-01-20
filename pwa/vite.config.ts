@@ -8,21 +8,28 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'robots.txt', 'apple-touch-icon.png'],
+      includeAssets: ['pwa-192x192.png', 'pwa-512x512.png', 'apple-touch-icon.png', 'vite.svg'],
+      devOptions: {
+        enabled: true,
+      },
       workbox: {
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
+        navigateFallback: '/index.html',
       },
       manifest: {
+        id: '/?source=pwa',
         name: 'OCR Stat Scraper',
         short_name: 'OCRScraper',
         description: 'Capture device screens and extract statistics via OCR',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
+        display_override: ['standalone'],
         orientation: 'portrait',
-        start_url: '/',
+        scope: '.',
+        start_url: '.',
         icons: [
           {
             src: 'pwa-192x192.png',
