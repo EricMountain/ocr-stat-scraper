@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Z letters rising like sleep">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1220" />
+      <stop offset="100%" stop-color="#13243d" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" fill="url(#bg)" />
+  <g fill="#ffffff" stroke="#d0d9ec" stroke-width="12" stroke-linejoin="round" transform="translate(256 246) scale(1.15) translate(-256 -256)">
+    <path d="M134 332c0-10 8-18 18-18h158c9.9 0 15 11.7 8.6 19.3l-98.6 115.4h107c10 0 18 8 18 18s-8 18-18 18H148c-9.9 0-15-11.7-8.6-19.3l98.6-115.4H152c-10 0-18-8-18-18Z" />
+    <path d="M222 214c0-9.5 7.5-17 17-17h136c9.4 0 14.3 10.8 8.2 18.4L292 323h95c9.9 0 18 8 18 18s-8.1 18-18 18H236c-9.4 0-14.3-10.8-8.2-18.4l91.2-107.6H239c-9.5 0-17-7.5-17-17Z" />
+    <path d="M306 104c0-9 7-16 16-16h118c8.8 0 13.8 10 8.1 17.4L360 218h81c9.4 0 17 7.6 17 17s-7.6 17-17 17H320c-8.8 0-13.8-10-8.1-17.4L364 137h-42c-9 0-16-7-16-16Z" />
+  </g>
+</svg>
