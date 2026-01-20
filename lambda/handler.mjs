@@ -6,26 +6,20 @@ const __dirname = path.dirname(new URL(import.meta.url).pathname)
 const distDir = path.join(__dirname, 'dist')
 const dynamoTable = process.env.DYNAMO_TABLE
 const dynamoRegion = process.env.DYNAMO_REGION || process.env.AWS_REGION
-const scanPatternsRaw = process.env.SCAN_PATTERNS || '[]'
+const formFieldsRaw = process.env.FORM_FIELDS || '[]'
 
-const patternStrings = (() => {
+const fieldDefs = (() => {
     try {
-        const parsed = JSON.parse(scanPatternsRaw)
-        return Array.isArray(parsed) ? parsed.filter((p) => typeof p === 'string') : []
+        const parsed = JSON.parse(formFieldsRaw)
+        if (!Array.isArray(parsed)) return []
+        return parsed
+            .filter((f) => f && typeof f.name === 'string' && typeof f.type === 'string')
+            .map((f) => ({ name: f.name, type: f.type }))
     } catch (error) {
-        console.warn('Failed to parse SCAN_PATTERNS env; defaulting to empty', error)
+        console.warn('Failed to parse FORM_FIELDS env; defaulting to empty', error)
         return []
     }
 })()
-
-const patternRegexes = patternStrings.map((p) => {
-    try {
-        return new RegExp(p, 'i')
-    } catch (error) {
-        console.warn('Invalid regex pattern skipped:', p, error)
-        return null
-    }
-}).filter(Boolean)
 
 const ddb = new DynamoDBClient({ region: dynamoRegion })
 
@@ -124,7 +118,7 @@ export const handler = async (event) => {
             if (!isAuthorized) {
                 return json(401, { error: 'Unauthorized' }, corsHeaders(origin))
             }
-            return json(200, { scanPatterns: patternStrings }, corsHeaders(origin))
+            return json(200, { fields: fieldDefs }, corsHeaders(origin))
         }
 
         if (!isAuthorized) {
@@ -162,26 +156,76 @@ export const handler = async (event) => {
             }
 
             const payload = event.body ? JSON.parse(event.body) : {}
+            const incoming = payload.data && typeof payload.data === 'object' ? payload.data : {}
+            const errors = []
+            const normalized = {}
 
-            const text =
-                typeof payload.rawText === 'string'
-                    ? payload.rawText
-                    : typeof payload.text === 'string'
-                        ? payload.text
-                        : JSON.stringify(payload)
+            const coerceBoolean = (value) => {
+                if (typeof value === 'boolean') return value
+                if (typeof value === 'string') {
+                    const lower = value.toLowerCase()
+                    if (['ok', 'true', 'yes', 'y', '1'].includes(lower)) return true
+                    if (['not ok', 'not_ok', 'false', 'no', 'n', '0'].includes(lower)) return false
+                }
+                return null
+            }
 
-            const matches = patternRegexes
-                .map((regex, idx) => ({ pattern: patternStrings[idx], matched: regex.test(text) }))
-                .filter((m) => m.matched)
+            const coerceDuration = (value) => {
+                if (value && typeof value === 'object') {
+                    const h = Number(value.hours ?? value.h ?? 0)
+                    const m = Number(value.minutes ?? value.m ?? 0)
+                    if (Number.isFinite(h) && Number.isFinite(m)) return { hours: h, minutes: m, totalMinutes: h * 60 + m }
+                }
+                if (typeof value === 'string') {
+                    const match = value.match(/^(\d{1,2}):(\d{1,2})$/)
+                    if (match) {
+                        const h = Number(match[1])
+                        const m = Number(match[2])
+                        if (Number.isFinite(h) && Number.isFinite(m)) return { hours: h, minutes: m, totalMinutes: h * 60 + m }
+                    }
+                }
+                return null
+            }
 
-            // Placeholder for your processing logic (store, forward, etc.)
+            for (const def of fieldDefs) {
+                const raw = incoming[def.name]
+                if (def.type === 'number') {
+                    const n = Number(raw)
+                    if (Number.isFinite(n)) {
+                        normalized[def.name] = n
+                    } else {
+                        errors.push(`Field ${def.name} must be a number`)
+                    }
+                } else if (def.type === 'duration') {
+                    const dur = coerceDuration(raw)
+                    if (dur) {
+                        normalized[def.name] = dur
+                    } else {
+                        errors.push(`Field ${def.name} must be duration (hours/minutes or HH:MM)`)
+                    }
+                } else if (def.type === 'boolean') {
+                    const b = coerceBoolean(raw)
+                    if (b !== null) {
+                        normalized[def.name] = b
+                    } else {
+                        errors.push(`Field ${def.name} must be boolean (ok/not ok)`)
+                    }
+                } else {
+                    errors.push(`Unknown field type ${def.type} for ${def.name}`)
+                }
+            }
+
+            if (errors.length) {
+                return json(400, { error: 'Invalid payload', details: errors }, corsHeaders(origin))
+            }
+
             const setCookie = (headerKey || queryKey)
                 ? `api_key=${encodeURIComponent(headerKey || queryKey)}; HttpOnly; Secure; Path=/; SameSite=Lax; Max-Age=2592000`
                 : undefined
 
             return json(
                 200,
-                { ok: true, receivedAt: new Date().toISOString(), matches },
+                { ok: true, receivedAt: new Date().toISOString(), data: normalized },
                 {
                     ...corsHeaders(origin),
                     ...(setCookie ? { 'Set-Cookie': setCookie } : {}),

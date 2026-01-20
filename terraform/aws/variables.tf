@@ -22,8 +22,11 @@ variable "table_name" {
   default     = "ocr-stat-scraper-api-keys"
 }
 
-variable "scan_patterns" {
-  description = "List of regex patterns (strings) to scan incoming payload text"
-  type        = list(string)
-  default     = []
+variable "form_fields" {
+  description = "List of form field definitions { name = string, type = string }"
+  type = list(object({
+    name = string
+    type = string # number | duration | boolean
+  }))
+  default = []
 }

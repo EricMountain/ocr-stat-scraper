@@ -156,6 +156,74 @@ h1 {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px 12px;
+  margin-top: 10px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.control select,
+.control input[type='checkbox'] {
+  background: var(--panel-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.control input[type='number'],
+.control input[type='time'],
+.control select {
+  min-width: 120px;
+  width: 100%;
+}
+
+.control input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+}
+
+.hint-inline {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.duration-group {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  column-gap: 6px;
+  width: 100%;
+}
+
+.duration-group input[type='number'] {
+  width: 100%;
+}
+
+.duration-sep {
+  color: var(--muted);
 }
 
 
