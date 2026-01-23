@@ -10,6 +10,8 @@ type PlotSettings = {
   default?: boolean
   style?: ChartStyle
   unit?: string
+  displayUnit?: string
+  displayFactor?: number
 }
 
 type FieldDef = {
@@ -44,7 +46,8 @@ type Series = {
   points: ChartPoint[]
   color: string
   style: ChartStyle
-  unit?: string
+  unitLabel?: string
+  convertNote?: string
   side: 'left' | 'right'
 }
 
@@ -131,9 +134,9 @@ const ChartSvg = ({ series }: { series: Series[] }) => {
         const linePath =
           s.style === 'line'
             ? d3
-                .line<ChartPoint>()
-                .x((d: ChartPoint) => xScale(d.ts))
-                .y((d: ChartPoint) => scale(d.value))(s.points)
+              .line<ChartPoint>()
+              .x((d: ChartPoint) => xScale(d.ts))
+              .y((d: ChartPoint) => scale(d.value))(s.points)
             : null
 
         return (
@@ -371,19 +374,24 @@ function App() {
     return selectedFieldNames.slice(0, maxSeries).map((name, idx) => {
       const field = chartableFields.find((f) => f.name === name)
       if (!field) return null
-      const unit = field.plot?.unit || (field.type === 'duration' ? 'minutes' : undefined)
+      const unitStored = field.plot?.unit || (field.type === 'duration' ? 'minutes' : undefined)
+      const unitDisplay = field.plot?.displayUnit ?? (field.plot as { display_unit?: string } | undefined)?.display_unit
+      const factorRaw = field.plot?.displayFactor ?? (field.plot as { display_factor?: number } | undefined)?.display_factor
+      const factor = typeof factorRaw === 'number' && Number.isFinite(factorRaw) ? factorRaw : 1
+      const unitLabel = unitDisplay || unitStored || undefined
+      const convertNote = unitDisplay && unitStored && unitDisplay !== unitStored ? `${unitStored}→${unitDisplay}` : unitLabel
       const style: ChartStyle = field.plot?.style ?? 'line'
       const color = palette[idx % palette.length]
       const points = readings
         .map((reading) => {
           const raw = reading.values[name]
-          if (typeof raw === 'number') return { ts: new Date(reading.timestamp), value: raw }
-          if (typeof raw === 'boolean') return { ts: new Date(reading.timestamp), value: raw ? 1 : 0 }
+          if (typeof raw === 'number') return { ts: new Date(reading.timestamp), value: raw * factor }
+          if (typeof raw === 'boolean') return { ts: new Date(reading.timestamp), value: (raw ? 1 : 0) * factor }
           return null
         })
         .filter((p) => p && !Number.isNaN(p.ts.getTime())) as ChartPoint[]
       const side: 'left' | 'right' = idx === 0 ? 'left' : 'right'
-      return { field, points, color, style, unit, side }
+      return { field, points, color, style, unitLabel, convertNote, side }
     }).filter(Boolean) as Series[]
   }, [chartableFields, readings, selectedFieldNames])
 
@@ -550,7 +558,7 @@ function App() {
                     <span key={s.field.name} className="legend-item">
                       <span className="legend-swatch" style={{ background: s.color }} />
                       <span className="legend-text">{s.field.name}</span>
-                      <span className="legend-meta">{s.style}{s.unit ? ` • ${s.unit}` : ''} • {s.side} y-axis</span>
+                      <span className="legend-meta">{s.style}{s.convertNote ? ` • ${s.convertNote}` : s.unitLabel ? ` • ${s.unitLabel}` : ''} • {s.side} y-axis</span>
                     </span>
                   ))}
                   {seriesList.length === 0 && <span className="hint">Select at least one series.</span>}

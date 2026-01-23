@@ -16,12 +16,16 @@ const normalizePlot = (plot) => {
     if (!plot || typeof plot !== 'object') return undefined
     const style = allowedPlotStyles.has(plot.style) ? plot.style : undefined
     const unit = typeof plot.unit === 'string' && plot.unit.trim() ? plot.unit.trim() : undefined
+    const displayUnit = typeof plot.display_unit === 'string' && plot.display_unit.trim() ? plot.display_unit.trim() : undefined
+    const displayFactorRaw = typeof plot.display_factor === 'number' && Number.isFinite(plot.display_factor) ? plot.display_factor : undefined
     const isDefault = plot.default === true
-    if (!style && !unit && !isDefault) return undefined
+    if (!style && !unit && !displayUnit && displayFactorRaw === undefined && !isDefault) return undefined
     return {
         ...(isDefault ? { default: true } : {}),
         ...(style ? { style } : {}),
         ...(unit ? { unit } : {}),
+        ...(displayUnit ? { display_unit: displayUnit } : {}),
+        ...(displayFactorRaw !== undefined ? { display_factor: displayFactorRaw } : {}),
     }
 }
 
