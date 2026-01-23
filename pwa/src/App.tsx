@@ -39,6 +39,15 @@ type ChartPoint = {
   value: number
 }
 
+type Series = {
+  field: FieldDef
+  points: ChartPoint[]
+  color: string
+  style: ChartStyle
+  unit?: string
+  side: 'left' | 'right'
+}
+
 const pad2 = (v: string) => (v.length === 1 ? `0${v}` : v || '00')
 
 const formatNumber = (value: number) => {
@@ -49,8 +58,9 @@ const formatNumber = (value: number) => {
   return value.toFixed(2)
 }
 
-const ChartSvg = ({ points, style }: { points: ChartPoint[]; style: ChartStyle }) => {
-  if (!points.length) {
+const ChartSvg = ({ series }: { series: Series[] }) => {
+  const plotted = series.slice(0, 2)
+  if (!plotted.length || plotted.every((s) => s.points.length === 0)) {
     return <div className="chart-empty">No data to plot yet.</div>
   }
 
@@ -60,41 +70,38 @@ const ChartSvg = ({ points, style }: { points: ChartPoint[]; style: ChartStyle }
   const paddingY = 28
   const innerWidth = width - paddingX * 2
 
-  const [xStartRaw, xEndRaw] = d3.extent<ChartPoint, Date>(points, (p: ChartPoint) => p.ts)
+  const allPoints = plotted.flatMap((s) => s.points)
+  const [xStartRaw, xEndRaw] = d3.extent<ChartPoint, Date>(allPoints, (p: ChartPoint) => p.ts)
   const xStart = xStartRaw ?? new Date()
   const xEnd = xEndRaw ?? xStart
   const xDomain = xStart.getTime() === xEnd.getTime() ? [xStart, new Date(xStart.getTime() + 60 * 1000)] : [xStart, xEnd]
 
-  const [yMinRaw, yMaxRaw] = d3.extent<ChartPoint, number>(points, (p: ChartPoint) => p.value)
-  const yMinBase = yMinRaw ?? 0
-  const yMaxBase = yMaxRaw ?? 1
-  const yDomain = yMinBase === yMaxBase ? [yMinBase - 1, yMaxBase + 1] : [yMinBase, yMaxBase]
-
   const xScale = d3.scaleTime().domain(xDomain as [Date, Date]).range([paddingX, width - paddingX])
-  const yScale = d3.scaleLinear().domain(yDomain as [number, number]).nice(5).range([height - paddingY, paddingY])
+
+  const buildYScale = (pts: ChartPoint[]) => {
+    const [minRaw, maxRaw] = d3.extent<ChartPoint, number>(pts, (p: ChartPoint) => p.value)
+    const minBase = minRaw ?? 0
+    const maxBase = maxRaw ?? 1
+    const domain = minBase === maxBase ? [minBase - 1, maxBase + 1] : [minBase, maxBase]
+    return d3.scaleLinear().domain(domain as [number, number]).nice(5).range([height - paddingY, paddingY])
+  }
+
+  const leftSeries = plotted[0]
+  const rightSeries = plotted[1]
+  const leftScale = leftSeries ? buildYScale(leftSeries.points) : null
+  const rightScale = rightSeries ? buildYScale(rightSeries.points) : null
 
   const xTicks: Date[] = xScale.ticks(5)
-  const yTicks: number[] = yScale.ticks(5)
+  const yTicksLeft: number[] = leftScale ? leftScale.ticks(5) : []
+  const yTicksRight: number[] = rightScale ? rightScale.ticks(5) : []
   const formatTime = d3.timeFormat('%m-%d %H:%M')
-
-  const linePath = d3
-    .line<ChartPoint>()
-    .x((d: ChartPoint) => xScale(d.ts))
-    .y((d: ChartPoint) => yScale(d.value))(points)
-
-  const xPositions = points.map((p) => xScale(p.ts)).sort((a, b) => a - b)
-  let minGap = innerWidth
-  for (let i = 1; i < xPositions.length; i += 1) {
-    minGap = Math.min(minGap, xPositions[i] - xPositions[i - 1])
-  }
-  const barWidth = Math.max(6, Math.min(48, (Number.isFinite(minGap) ? minGap : innerWidth / Math.max(points.length, 1)) * 0.7))
 
   return (
     <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Data chart">
       <rect x={0} y={0} width={width} height={height} rx={12} className="chart-surface" />
 
-      {yTicks.map((tick: number) => {
-        const y = yScale(tick)
+      {yTicksLeft.map((tick: number) => {
+        const y = leftScale ? leftScale(tick) : 0
         return <line key={`y-${tick}`} x1={paddingX} x2={width - paddingX} y1={y} y2={y} className="chart-grid" />
       })}
 
@@ -103,26 +110,54 @@ const ChartSvg = ({ points, style }: { points: ChartPoint[]; style: ChartStyle }
         return <line key={`x-${tick.toISOString()}`} x1={x} x2={x} y1={paddingY} y2={height - paddingY} className="chart-grid-vertical" />
       })}
 
-      {style === 'bar' &&
-        points.map((p, idx) => {
-          const x = xScale(p.ts) - barWidth / 2
-          const y = yScale(p.value)
-          const h = height - paddingY - y
-          return <rect key={p.ts.getTime() + idx} x={x} y={y} width={barWidth} height={h} className="chart-bar" />
-        })}
+      {plotted.map((s) => {
+        const scale = s.side === 'left' ? leftScale : rightScale || leftScale
+        if (!scale) return null
+        if (s.style === 'bar') {
+          const xPositions = s.points.map((p) => xScale(p.ts)).sort((a, b) => a - b)
+          let minGap = innerWidth
+          for (let i = 1; i < xPositions.length; i += 1) {
+            minGap = Math.min(minGap, xPositions[i] - xPositions[i - 1])
+          }
+          const barWidth = Math.max(6, Math.min(48, (Number.isFinite(minGap) ? minGap : innerWidth / Math.max(s.points.length, 1)) * 0.65))
+          return s.points.map((p, idx) => {
+            const x = xScale(p.ts) - barWidth / 2
+            const y = scale(p.value)
+            const h = height - paddingY - y
+            return <rect key={`${s.field.name}-bar-${p.ts.getTime()}-${idx}`} x={x} y={y} width={barWidth} height={h} className="chart-bar" style={{ stroke: s.color, fill: `${s.color}33` }} />
+          })
+        }
+        const linePath =
+          s.style === 'line'
+            ? d3
+                .line<ChartPoint>()
+                .x((d: ChartPoint) => xScale(d.ts))
+                .y((d: ChartPoint) => scale(d.value))(s.points)
+            : null
 
-      {style === 'line' && linePath ? <path d={linePath} className="chart-line" fill="none" /> : null}
-
-      {(style === 'line' || style === 'point') &&
-        points.map((p, idx) => (
-          <circle key={p.ts.getTime() + idx} cx={xScale(p.ts)} cy={yScale(p.value)} r={5} className="chart-point" />
-        ))}
+        return (
+          <g key={`series-${s.field.name}`}>
+            {s.style === 'line' && linePath ? <path d={linePath} className="chart-line" fill="none" style={{ stroke: s.color }} /> : null}
+            {(s.style === 'line' || s.style === 'point') &&
+              s.points.map((p, idx) => (
+                <circle key={`${s.field.name}-pt-${p.ts.getTime()}-${idx}`} cx={xScale(p.ts)} cy={scale(p.value)} r={5} className="chart-point" style={{ fill: s.color, stroke: '#041019' }} />
+              ))}
+          </g>
+        )
+      })}
 
       <line x1={paddingX} x2={width - paddingX} y1={height - paddingY} y2={height - paddingY} className="chart-axis" />
-      <line x1={paddingX} x2={paddingX} y1={paddingY} y2={height - paddingY} className="chart-axis" />
+      {leftScale && <line x1={paddingX} x2={paddingX} y1={paddingY} y2={height - paddingY} className="chart-axis" />}
+      {rightScale && <line x1={width - paddingX} x2={width - paddingX} y1={paddingY} y2={height - paddingY} className="chart-axis" />}
 
-      {yTicks.map((tick: number) => (
-        <text key={`ylabel-${tick}`} x={paddingX - 8} y={yScale(tick) + 4} className="chart-tick" textAnchor="end">
+      {yTicksLeft.map((tick: number) => (
+        <text key={`ylabel-${tick}`} x={paddingX - 8} y={leftScale ? leftScale(tick) + 4 : 0} className="chart-tick" textAnchor="end">
+          {formatNumber(tick)}
+        </text>
+      ))}
+
+      {yTicksRight.map((tick: number) => (
+        <text key={`ylabel-right-${tick}`} x={width - paddingX + 8} y={rightScale ? rightScale(tick) + 4 : 0} className="chart-tick" textAnchor="start">
           {formatNumber(tick)}
         </text>
       ))}
@@ -147,8 +182,8 @@ function App() {
   const [readings, setReadings] = useState<Reading[]>([])
   const [readingsError, setReadingsError] = useState<string | null>(null)
   const [isLoadingReadings, setIsLoadingReadings] = useState(false)
-  const [selectedFieldName, setSelectedFieldName] = useState('')
-  const [selectedStyle, setSelectedStyle] = useState<ChartStyle>('line')
+  const [selectedFieldNames, setSelectedFieldNames] = useState<string[]>([])
+  const maxSeries = 2
   const inputRefs = useRef<Record<string, HTMLInputElement | HTMLSelectElement | null>>({})
 
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined
@@ -172,28 +207,18 @@ function App() {
 
   useEffect(() => {
     if (!chartableFields.length) {
-      setSelectedFieldName('')
+      setSelectedFieldNames([])
       return
     }
 
-    setSelectedFieldName((current) => {
-      if (current && chartableFields.some((f) => f.name === current)) return current
-      const preferred = chartableFields.find((f) => f.plot?.default) ?? chartableFields[0]
-      return preferred?.name ?? ''
+    setSelectedFieldNames((current) => {
+      const validCurrent = current.filter((name) => chartableFields.some((f) => f.name === name))
+      if (validCurrent.length) return validCurrent
+      const defaults = chartableFields.filter((f) => f.plot?.default).map((f) => f.name)
+      if (defaults.length) return defaults
+      return [chartableFields[0].name]
     })
   }, [chartableFields])
-
-  useEffect(() => {
-    const currentField = chartableFields.find((f) => f.name === selectedFieldName)
-    if (!currentField) {
-      setSelectedStyle('line')
-      return
-    }
-    const nextStyle = currentField.plot?.style ?? 'line'
-    if (nextStyle !== selectedStyle) {
-      setSelectedStyle(nextStyle)
-    }
-  }, [chartableFields, selectedFieldName, selectedStyle])
 
   const focusNextField = (currentName: string) => {
     const idx = fields.findIndex((f) => f.name === currentName)
@@ -340,24 +365,28 @@ function App() {
     }
   }
 
-  const selectedField = chartableFields.find((f) => f.name === selectedFieldName)
-  const unitLabel = selectedField?.plot?.unit || (selectedField?.type === 'duration' ? 'minutes' : '')
+  const seriesList = useMemo(() => {
+    const palette = d3.schemeTableau10 || ['#4ce0b3', '#4cc3e0', '#e0c34c', '#e04c7f', '#7b6cff']
+    return selectedFieldNames.slice(0, maxSeries).map((name, idx) => {
+      const field = chartableFields.find((f) => f.name === name)
+      if (!field) return null
+      const unit = field.plot?.unit || (field.type === 'duration' ? 'minutes' : undefined)
+      const style: ChartStyle = field.plot?.style ?? 'line'
+      const color = palette[idx % palette.length]
+      const points = readings
+        .map((reading) => {
+          const raw = reading.values[name]
+          if (typeof raw === 'number') return { ts: new Date(reading.timestamp), value: raw }
+          if (typeof raw === 'boolean') return { ts: new Date(reading.timestamp), value: raw ? 1 : 0 }
+          return null
+        })
+        .filter((p) => p && !Number.isNaN(p.ts.getTime())) as ChartPoint[]
+      const side: 'left' | 'right' = idx === 0 ? 'left' : 'right'
+      return { field, points, color, style, unit, side }
+    }).filter(Boolean) as Series[]
+  }, [chartableFields, readings, selectedFieldNames])
 
-  const chartPoints = useMemo(() => {
-    if (!selectedFieldName) return []
-    return readings
-      .map((reading) => {
-        const raw = reading.values[selectedFieldName]
-        if (typeof raw === 'number') return { ts: new Date(reading.timestamp), value: raw }
-        if (typeof raw === 'boolean') return { ts: new Date(reading.timestamp), value: raw ? 1 : 0 }
-        return null
-      })
-      .filter((p) => p && !Number.isNaN(p.ts.getTime())) as ChartPoint[]
-  }, [readings, selectedFieldName])
-
-  const latestPoint = chartPoints.length ? chartPoints[chartPoints.length - 1] : null
-  const latestValueLabel = latestPoint ? `${formatNumber(latestPoint.value)}${unitLabel ? ` ${unitLabel}` : ''}` : '—'
-  const latestTimestamp = latestPoint ? latestPoint.ts.toLocaleString() : null
+  const totalPoints = seriesList.reduce((acc, s) => acc + s.points.length, 0)
 
   return (
     <div className="page">
@@ -467,20 +496,36 @@ function App() {
           ) : (
             <>
               <div className="chart-controls">
-                <label className="control chart-control">
-                  <span>Data to plot</span>
-                  <select value={selectedFieldName} onChange={(e) => setSelectedFieldName(e.target.value)}>
-                    {chartableFields.map((field) => (
-                      <option key={field.name} value={field.name}>
-                        {field.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="chart-multiselect">
+                  <p className="control-label">Data to plot</p>
+                  <div className="chart-checkboxes">
+                    {chartableFields.map((field) => {
+                      const checked = selectedFieldNames.includes(field.name)
+                      const disableAdd = !checked && selectedFieldNames.length >= maxSeries
+                      return (
+                        <label key={field.name} className={`chart-checkbox${disableAdd ? ' disabled' : ''}`}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={disableAdd}
+                            onChange={() => {
+                              setSelectedFieldNames((prev) => {
+                                if (checked) return prev.filter((name) => name !== field.name)
+                                if (prev.length >= maxSeries) return prev
+                                return [...prev, field.name]
+                              })
+                            }}
+                          />
+                          <span>{field.name}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
 
                 <div className="chart-tags">
-                  <span className="pill">Style: {selectedStyle}</span>
-                  <span className="pill">Unit: {unitLabel || '—'}</span>
+                  <span className="pill">Series: {selectedFieldNames.length} / {maxSeries}</span>
+                  <span className="pill">Points: {totalPoints}</span>
                 </div>
 
                 <button onClick={fetchReadings} disabled={isLoadingReadings} aria-live="polite">
@@ -491,17 +536,25 @@ function App() {
               <div className="chart-shell">
                 {readingsError ? (
                   <p className="hint">Failed to load readings: {readingsError}</p>
-                ) : isLoadingReadings && !chartPoints.length ? (
+                ) : isLoadingReadings && totalPoints === 0 ? (
                   <p className="hint">Loading readings…</p>
                 ) : (
-                  <ChartSvg points={chartPoints} style={selectedStyle} />
+                  <ChartSvg series={seriesList} />
                 )}
               </div>
 
               <div className="chart-foot">
-                <p className="hint">Latest value: {latestValueLabel}</p>
-                <p className="hint">Last point: {latestTimestamp || '—'}</p>
-                <p className="hint">Showing {chartPoints.length} points</p>
+                <div className="chart-legend">
+                  {seriesList.map((s) => (
+                    <span key={s.field.name} className="legend-item">
+                      <span className="legend-swatch" style={{ background: s.color }} />
+                      <span className="legend-text">{s.field.name}</span>
+                      <span className="legend-meta">{s.style}{s.unit ? ` • ${s.unit}` : ''} • {s.side} y-axis</span>
+                    </span>
+                  ))}
+                  {seriesList.length === 0 && <span className="hint">Select at least one series.</span>}
+                </div>
+                <p className="hint">Showing {totalPoints} points across {seriesList.length} series</p>
               </div>
             </>
           )}

@@ -372,6 +372,39 @@ button.primary:hover {
   align-items: center;
 }
 
+.chart-multiselect {
+  flex: 1;
+  min-width: 240px;
+}
+
+.chart-checkboxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 6px 10px;
+  margin-top: 6px;
+}
+
+.chart-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.chart-checkbox input {
+  margin: 0;
+}
+
+.chart-checkbox.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .chart-shell {
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -397,6 +430,38 @@ button.primary:hover {
   color: var(--muted);
   font-size: 13px;
   justify-content: space-between;
+  align-items: center;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-muted);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.legend-meta {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .chart-svg {
