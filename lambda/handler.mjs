@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { DynamoDBClient, GetItemCommand, PutItemCommand } from '@aws-sdk/client-dynamodb'
+import { DynamoDBClient, GetItemCommand, PutItemCommand, QueryCommand } from '@aws-sdk/client-dynamodb'
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname)
 const distDir = path.join(__dirname, 'dist')
@@ -9,13 +9,35 @@ const readingsTable = process.env.READINGS_TABLE
 const dynamoRegion = process.env.DYNAMO_REGION || process.env.AWS_REGION
 const formFieldsRaw = process.env.FORM_FIELDS || '[]'
 
+const allowedFieldTypes = new Set(['number', 'duration', 'boolean'])
+const allowedPlotStyles = new Set(['bar', 'line', 'point'])
+
+const normalizePlot = (plot) => {
+    if (!plot || typeof plot !== 'object') return undefined
+    const style = allowedPlotStyles.has(plot.style) ? plot.style : undefined
+    const unit = typeof plot.unit === 'string' && plot.unit.trim() ? plot.unit.trim() : undefined
+    const isDefault = plot.default === true
+    if (!style && !unit && !isDefault) return undefined
+    return {
+        ...(isDefault ? { default: true } : {}),
+        ...(style ? { style } : {}),
+        ...(unit ? { unit } : {}),
+    }
+}
+
 const fieldDefs = (() => {
     try {
         const parsed = JSON.parse(formFieldsRaw)
         if (!Array.isArray(parsed)) return []
         return parsed
             .filter((f) => f && typeof f.name === 'string' && typeof f.type === 'string')
-            .map((f) => ({ name: f.name, type: f.type }))
+            .map((f) => {
+                const type = allowedFieldTypes.has(f.type) ? f.type : null
+                if (!type) return null
+                const plot = normalizePlot(f.plot)
+                return plot ? { name: f.name, type, plot } : { name: f.name, type }
+            })
+            .filter(Boolean)
     } catch (error) {
         console.warn('Failed to parse FORM_FIELDS env; defaulting to empty', error)
         return []
@@ -131,6 +153,64 @@ export const handler = async (event) => {
                 return json(401, { error: 'Unauthorized' }, corsHeaders(origin))
             }
             return json(200, { fields: fieldDefs }, corsHeaders(origin))
+        }
+
+        if (rawPath === '/readings') {
+            if (!isAuthorized) {
+                return json(401, { error: 'Unauthorized' }, corsHeaders(origin))
+            }
+            if (!authorizedRecord?.device_id?.S) {
+                return json(500, { error: 'Device mapping unavailable' }, corsHeaders(origin))
+            }
+            if (!readingsTable) {
+                return json(500, { error: 'Readings table not configured' }, corsHeaders(origin))
+            }
+
+            const limitParam = Number(event?.queryStringParameters?.limit || new URLSearchParams(event?.rawQueryString || '').get('limit') || '120')
+            const limit = Number.isFinite(limitParam) ? Math.min(Math.max(Math.trunc(limitParam), 1), 500) : 120
+            const deviceId = authorizedRecord.device_id.S
+
+            try {
+                const command = new QueryCommand({
+                    TableName: readingsTable,
+                    KeyConditionExpression: 'device_id = :device',
+                    ExpressionAttributeValues: {
+                        ':device': { S: deviceId },
+                    },
+                    ScanIndexForward: false,
+                    Limit: limit,
+                })
+
+                const { Items = [] } = await ddb.send(command)
+                const readings = Items.map((item) => {
+                    const values = {}
+                    const rawValues = item?.values?.M || {}
+                    Object.entries(rawValues).forEach(([key, value]) => {
+                        if (value?.N !== undefined) values[key] = Number(value.N)
+                        if (typeof value?.BOOL === 'boolean') values[key] = Boolean(value.BOOL)
+                    })
+                    const timestamp = item?.reading_ts?.S
+                    return timestamp ? { timestamp, values } : null
+                })
+                    .filter(Boolean)
+                    .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+
+                const setCookie = (headerKey || queryKey)
+                    ? `api_key=${encodeURIComponent(headerKey || queryKey)}; HttpOnly; Secure; Path=/; SameSite=Lax; Max-Age=2592000`
+                    : undefined
+
+                return json(
+                    200,
+                    { ok: true, deviceId, count: readings.length, readings, fields: fieldDefs },
+                    {
+                        ...corsHeaders(origin),
+                        ...(setCookie ? { 'Set-Cookie': setCookie } : {}),
+                    },
+                )
+            } catch (error) {
+                console.error('Failed to query readings', error)
+                return json(500, { error: 'Could not load readings' }, corsHeaders(origin))
+            }
         }
 
         if (!isAuthorized) {
