@@ -1,6 +1,6 @@
 LAMBDA_NAME ?= ocr-stat-scraper
 
-.PHONY: build-web sync-dist package terraform-init terraform-plan terraform-apply clean
+.PHONY: build-web sync-dist package terraform-init terraform-plan terraform-apply clean audit-fix
 
 build-web:
 	npm --prefix pwa install
@@ -25,3 +25,8 @@ terraform-apply: package terraform-init
 clean:
 	rm -f terraform/aws/lambda.zip
 	rm -rf lambda/dist
+
+audit-fix:
+	npm --prefix pwa install
+	npm --prefix pwa audit fix
+	npm --prefix pwa update
