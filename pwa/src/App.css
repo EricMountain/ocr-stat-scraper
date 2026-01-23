@@ -413,6 +413,11 @@ button.primary:hover {
   stroke-width: 1;
 }
 
+.chart-grid-vertical {
+  stroke: rgba(159, 179, 209, 0.18);
+  stroke-width: 1;
+}
+
 .chart-line {
   stroke: var(--accent);
   stroke-width: 3;
@@ -433,6 +438,11 @@ button.primary:hover {
 .chart-axis {
   stroke: var(--border);
   stroke-width: 1.5;
+}
+
+.chart-tick {
+  fill: var(--muted);
+  font-size: 11px;
 }
 
 @media (max-width: 900px) {

@@ -1,3 +1,4 @@
+import * as d3 from 'd3'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
@@ -55,59 +56,82 @@ const ChartSvg = ({ points, style }: { points: ChartPoint[]; style: ChartStyle }
 
   const width = 720
   const height = 280
-  const paddingX = 36
+  const paddingX = 48
   const paddingY = 28
   const innerWidth = width - paddingX * 2
-  const innerHeight = height - paddingY * 2
 
-  const values = points.map((p) => p.value)
-  let min = Math.min(...values)
-  let max = Math.max(...values)
-  if (min === max) {
-    min -= 1
-    max += 1
+  const [xStartRaw, xEndRaw] = d3.extent<ChartPoint, Date>(points, (p: ChartPoint) => p.ts)
+  const xStart = xStartRaw ?? new Date()
+  const xEnd = xEndRaw ?? xStart
+  const xDomain = xStart.getTime() === xEnd.getTime() ? [xStart, new Date(xStart.getTime() + 60 * 1000)] : [xStart, xEnd]
+
+  const [yMinRaw, yMaxRaw] = d3.extent<ChartPoint, number>(points, (p: ChartPoint) => p.value)
+  const yMinBase = yMinRaw ?? 0
+  const yMaxBase = yMaxRaw ?? 1
+  const yDomain = yMinBase === yMaxBase ? [yMinBase - 1, yMaxBase + 1] : [yMinBase, yMaxBase]
+
+  const xScale = d3.scaleTime().domain(xDomain as [Date, Date]).range([paddingX, width - paddingX])
+  const yScale = d3.scaleLinear().domain(yDomain as [number, number]).nice(5).range([height - paddingY, paddingY])
+
+  const xTicks: Date[] = xScale.ticks(5)
+  const yTicks: number[] = yScale.ticks(5)
+  const formatTime = d3.timeFormat('%m-%d %H:%M')
+
+  const linePath = d3
+    .line<ChartPoint>()
+    .x((d: ChartPoint) => xScale(d.ts))
+    .y((d: ChartPoint) => yScale(d.value))(points)
+
+  const xPositions = points.map((p) => xScale(p.ts)).sort((a, b) => a - b)
+  let minGap = innerWidth
+  for (let i = 1; i < xPositions.length; i += 1) {
+    minGap = Math.min(minGap, xPositions[i] - xPositions[i - 1])
   }
-
-  const xFor = (idx: number) => {
-    if (points.length === 1) return paddingX + innerWidth / 2
-    return paddingX + (idx / (points.length - 1)) * innerWidth
-  }
-
-  const yFor = (value: number) => {
-    const ratio = (value - min) / (max - min)
-    return paddingY + innerHeight - ratio * innerHeight
-  }
-
-  const linePath = points.map((p, idx) => `${idx === 0 ? 'M' : 'L'}${xFor(idx)},${yFor(p.value)}`).join(' ')
-  const gridLines = 5
+  const barWidth = Math.max(6, Math.min(48, (Number.isFinite(minGap) ? minGap : innerWidth / Math.max(points.length, 1)) * 0.7))
 
   return (
     <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Data chart">
       <rect x={0} y={0} width={width} height={height} rx={12} className="chart-surface" />
 
-      {Array.from({ length: gridLines }).map((_, idx) => {
-        const y = paddingY + (idx / (gridLines - 1)) * innerHeight
-        return <line key={y} x1={paddingX} x2={width - paddingX} y1={y} y2={y} className="chart-grid" />
+      {yTicks.map((tick: number) => {
+        const y = yScale(tick)
+        return <line key={`y-${tick}`} x1={paddingX} x2={width - paddingX} y1={y} y2={y} className="chart-grid" />
       })}
 
-      {style === 'bar'
-        ? points.map((p, idx) => {
-            const barWidth = innerWidth / Math.max(points.length, 6) * 0.7
-            const x = xFor(idx) - barWidth / 2
-            const y = yFor(p.value)
-            const h = paddingY + innerHeight - y
-            return <rect key={p.ts.getTime()} x={x} y={y} width={barWidth} height={h} className="chart-bar" />
-          })
-        : null}
+      {xTicks.map((tick: Date) => {
+        const x = xScale(tick)
+        return <line key={`x-${tick.toISOString()}`} x1={x} x2={x} y1={paddingY} y2={height - paddingY} className="chart-grid-vertical" />
+      })}
 
-      {style === 'line' && <path d={linePath} className="chart-line" fill="none" />}
+      {style === 'bar' &&
+        points.map((p, idx) => {
+          const x = xScale(p.ts) - barWidth / 2
+          const y = yScale(p.value)
+          const h = height - paddingY - y
+          return <rect key={p.ts.getTime() + idx} x={x} y={y} width={barWidth} height={h} className="chart-bar" />
+        })}
+
+      {style === 'line' && linePath ? <path d={linePath} className="chart-line" fill="none" /> : null}
 
       {(style === 'line' || style === 'point') &&
         points.map((p, idx) => (
-          <circle key={p.ts.getTime() + idx} cx={xFor(idx)} cy={yFor(p.value)} r={5} className="chart-point" />
+          <circle key={p.ts.getTime() + idx} cx={xScale(p.ts)} cy={yScale(p.value)} r={5} className="chart-point" />
         ))}
 
-      <line x1={paddingX} x2={width - paddingX} y1={paddingY + innerHeight} y2={paddingY + innerHeight} className="chart-axis" />
+      <line x1={paddingX} x2={width - paddingX} y1={height - paddingY} y2={height - paddingY} className="chart-axis" />
+      <line x1={paddingX} x2={paddingX} y1={paddingY} y2={height - paddingY} className="chart-axis" />
+
+      {yTicks.map((tick: number) => (
+        <text key={`ylabel-${tick}`} x={paddingX - 8} y={yScale(tick) + 4} className="chart-tick" textAnchor="end">
+          {formatNumber(tick)}
+        </text>
+      ))}
+
+      {xTicks.map((tick: Date) => (
+        <text key={`xlabel-${tick.toISOString()}`} x={xScale(tick)} y={height - paddingY + 16} className="chart-tick" textAnchor="middle">
+          {formatTime(tick)}
+        </text>
+      ))}
     </svg>
   )
 }
