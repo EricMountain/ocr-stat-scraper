@@ -121,7 +121,8 @@ const ChartSvg = ({ series }: { series: Series[] }) => {
           }
           const barWidth = Math.max(6, Math.min(48, (Number.isFinite(minGap) ? minGap : innerWidth / Math.max(s.points.length, 1)) * 0.65))
           return s.points.map((p, idx) => {
-            const x = xScale(p.ts) - barWidth / 2
+            const centeredX = xScale(p.ts) - barWidth / 2
+            const x = Math.min(Math.max(centeredX, paddingX), width - paddingX - barWidth)
             const y = scale(p.value)
             const h = height - paddingY - y
             return <rect key={`${s.field.name}-bar-${p.ts.getTime()}-${idx}`} x={x} y={y} width={barWidth} height={h} className="chart-bar" style={{ stroke: s.color, fill: `${s.color}33` }} />
