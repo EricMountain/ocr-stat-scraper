@@ -570,7 +570,6 @@ function App() {
               {isSending ? 'Sending…' : 'Send to backend'}
             </button>
             <div className="status-box">
-              <p className="status-label">Status</p>
               <p className="status-text">{status}</p>
             </div>
           </div>
