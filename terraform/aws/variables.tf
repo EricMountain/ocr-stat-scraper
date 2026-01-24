@@ -29,10 +29,17 @@ variable "readings_table_name" {
 }
 
 variable "form_fields" {
-  description = "List of form field definitions { name = string, type = string }"
+  description = "List of form field definitions { name = string, type = string, plot = optional({ default = bool, style = string, unit = string, display_unit = string, display_factor = number }) }"
   type = list(object({
     name = string
     type = string # number | duration | boolean
+    plot = optional(object({
+      default        = optional(bool)
+      style          = optional(string) # bar | line | point
+      unit           = optional(string) # stored unit
+      display_unit   = optional(string) # optional unit to display/convert to
+      display_factor = optional(number) # multiplier to convert stored value to display
+    }))
   }))
   default = []
 }
