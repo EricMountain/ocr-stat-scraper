@@ -135,7 +135,7 @@ const ChartSvg = ({ series }: { series: Series[] }) => {
 
       <line x1={paddingX} x2={width - paddingX} y1={height - paddingY} y2={height - paddingY} className="chart-axis" />
       {leftScale && <line x1={paddingX} x2={paddingX} y1={paddingY} y2={height - paddingY} className="chart-axis" />}
-      {rightScale && <line x1={width - paddingX} x2={width - paddingX} y1={paddingY} y2={height - paddingY} className="chart-axis" />}
+      <line x1={width - paddingX} x2={width - paddingX} y1={paddingY} y2={height - paddingY} className="chart-axis" />
 
       {plotted.map((s) => {
         const scale = s.side === 'left' ? leftScale : rightScale || leftScale
