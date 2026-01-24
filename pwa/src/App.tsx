@@ -133,6 +133,10 @@ const ChartSvg = ({ series }: { series: Series[] }) => {
         return <line key={`x-${tick.toISOString()}`} x1={x} x2={x} y1={paddingY} y2={height - paddingY} className="chart-grid-vertical" />
       })}
 
+      <line x1={paddingX} x2={width - paddingX} y1={height - paddingY} y2={height - paddingY} className="chart-axis" />
+      {leftScale && <line x1={paddingX} x2={paddingX} y1={paddingY} y2={height - paddingY} className="chart-axis" />}
+      {rightScale && <line x1={width - paddingX} x2={width - paddingX} y1={paddingY} y2={height - paddingY} className="chart-axis" />}
+
       {plotted.map((s) => {
         const scale = s.side === 'left' ? leftScale : rightScale || leftScale
         if (!scale) return null
@@ -172,10 +176,6 @@ const ChartSvg = ({ series }: { series: Series[] }) => {
           </g>
         )
       })}
-
-      <line x1={paddingX} x2={width - paddingX} y1={height - paddingY} y2={height - paddingY} className="chart-axis" />
-      {leftScale && <line x1={paddingX} x2={paddingX} y1={paddingY} y2={height - paddingY} className="chart-axis" />}
-      {rightScale && <line x1={width - paddingX} x2={width - paddingX} y1={paddingY} y2={height - paddingY} className="chart-axis" />}
 
       {yTicksLeft.map((tick: number) => (
         <text key={`ylabel-${tick}`} x={paddingX - 8} y={leftScale ? leftScale(tick) + 4 : 0} className="chart-tick" textAnchor="end">
