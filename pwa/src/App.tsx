@@ -6,6 +6,8 @@ type FieldType = 'number' | 'duration' | 'boolean'
 
 type ChartStyle = 'bar' | 'line' | 'point'
 
+type ThemeChoice = 'system' | 'light' | 'dark'
+
 type PlotSettings = {
   default?: boolean
   style?: ChartStyle
@@ -196,6 +198,20 @@ const ChartSvg = ({ series }: { series: Series[] }) => {
   )
 }
 
+const themeStorageKey = 'theme-choice'
+
+const getStoredThemeChoice = (): ThemeChoice | null => {
+  if (typeof window === 'undefined') return null
+  const stored = window.localStorage.getItem(themeStorageKey)
+  return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : null
+}
+
+const getSystemTheme = (): 'light' | 'dark' => {
+  if (typeof window === 'undefined') return 'dark'
+  const prefersDark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)').matches : false
+  return prefersDark ? 'dark' : 'light'
+}
+
 function App() {
   const initialFields = typeof window !== 'undefined' && Array.isArray(window.__FIELD_DEFS__) ? window.__FIELD_DEFS__ : []
   const [fields] = useState<FieldDef[]>(initialFields)
@@ -208,11 +224,45 @@ function App() {
   const [readingsError, setReadingsError] = useState<string | null>(null)
   const [isLoadingReadings, setIsLoadingReadings] = useState(false)
   const [selectedFieldNames, setSelectedFieldNames] = useState<string[]>([])
+  const [themeChoice, setThemeChoice] = useState<ThemeChoice>(() => getStoredThemeChoice() ?? 'system')
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => {
+    const stored = getStoredThemeChoice()
+    if (stored && stored !== 'system') return stored
+    return getSystemTheme()
+  })
   const inputRefs = useRef<Record<string, HTMLInputElement | HTMLSelectElement | null>>({})
 
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined
 
   const chartableFields = useMemo(() => fields.filter((f) => f.type === 'number' || f.type === 'duration'), [fields])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(themeStorageKey, themeChoice)
+  }, [themeChoice])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null
+
+    const applyTheme = () => {
+      const systemTheme: 'light' | 'dark' = media?.matches ? 'dark' : 'light'
+      const nextTheme = themeChoice === 'system' ? systemTheme : themeChoice
+      setResolvedTheme(nextTheme)
+      if (typeof document !== 'undefined') {
+        document.documentElement.dataset.theme = nextTheme
+      }
+    }
+
+    applyTheme()
+
+    const handleMediaChange = () => {
+      if (themeChoice === 'system') applyTheme()
+    }
+
+    media?.addEventListener('change', handleMediaChange)
+    return () => media?.removeEventListener('change', handleMediaChange)
+  }, [themeChoice])
 
   useEffect(() => {
     if (!fields.length) return
@@ -418,6 +468,17 @@ function App() {
 
   const totalPoints = seriesList.reduce((acc, s) => acc + s.points.length, 0)
 
+  const cycleThemeChoice = () => {
+    setThemeChoice((prev) => {
+      if (prev === 'system') return 'light'
+      if (prev === 'light') return 'dark'
+      return 'system'
+    })
+  }
+
+  const readableTheme = resolvedTheme === 'dark' ? 'Dark' : 'Light'
+  const modeLabel = themeChoice === 'system' ? `System • ${readableTheme}` : `${readableTheme} • Manual`
+
   return (
     <div className="page">
       <div className="grid">
@@ -509,7 +570,6 @@ function App() {
               {isSending ? 'Sending…' : 'Send to backend'}
             </button>
             <div className="status-box">
-              <p className="status-label">Status</p>
               <p className="status-text">{status}</p>
             </div>
           </div>
@@ -592,6 +652,21 @@ function App() {
             </>
           )}
         </section>
+      </div>
+
+      <div className="mode-row">
+        <button
+          type="button"
+          className="mode-badge"
+          onClick={cycleThemeChoice}
+          aria-label={`Switch color mode (current ${modeLabel})`}
+        >
+          <span className="mode-dot" aria-hidden="true" />
+          <span className="mode-labels" aria-live="polite">
+            <span className="mode-label">{modeLabel} mode</span>
+            <span className="mode-hint">Tap to switch theme</span>
+          </span>
+        </button>
       </div>
     </div>
   )
