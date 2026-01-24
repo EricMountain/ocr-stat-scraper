@@ -71,7 +71,7 @@ resource "aws_cloudwatch_log_group" "lambda" {
 }
 
 # Lambda function and URL
-resource "aws_lambda_function" "ocr" {
+resource "aws_lambda_function" "stat_scraper" {
   function_name    = var.lambda_name
   role             = aws_iam_role.lambda.arn
   handler          = "handler.handler"
@@ -91,8 +91,8 @@ resource "aws_lambda_function" "ocr" {
   }
 }
 
-resource "aws_lambda_function_url" "ocr" {
-  function_name      = aws_lambda_function.ocr.arn
+resource "aws_lambda_function_url" "stat_scraper" {
+  function_name      = aws_lambda_function.stat_scraper.arn
   authorization_type = "NONE"
 
   cors {
@@ -104,11 +104,11 @@ resource "aws_lambda_function_url" "ocr" {
 }
 
 output "function_url" {
-  value = aws_lambda_function_url.ocr.function_url
+  value = aws_lambda_function_url.stat_scraper.function_url
 }
 
 output "lambda_name" {
-  value = aws_lambda_function.ocr.function_name
+  value = aws_lambda_function.stat_scraper.function_name
 }
 
 output "role_name" {
