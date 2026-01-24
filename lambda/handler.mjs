@@ -18,10 +18,11 @@ const normalizePlot = (plot) => {
     const unit = typeof plot.unit === 'string' && plot.unit.trim() ? plot.unit.trim() : undefined
     const displayUnit = typeof plot.display_unit === 'string' && plot.display_unit.trim() ? plot.display_unit.trim() : undefined
     const displayFactorRaw = typeof plot.display_factor === 'number' && Number.isFinite(plot.display_factor) ? plot.display_factor : undefined
-    const isDefault = plot.default === true
-    if (!style && !unit && !displayUnit && displayFactorRaw === undefined && !isDefault) return undefined
+    const hasDefault = plot.default === true || plot.default === false
+    const defaultValue = plot.default === true
+    if (!style && !unit && !displayUnit && displayFactorRaw === undefined && !hasDefault) return undefined
     return {
-        ...(isDefault ? { default: true } : {}),
+        ...(hasDefault ? { default: defaultValue } : {}),
         ...(style ? { style } : {}),
         ...(unit ? { unit } : {}),
         ...(displayUnit ? { display_unit: displayUnit } : {}),
@@ -181,7 +182,7 @@ export const handler = async (event) => {
                     ExpressionAttributeValues: {
                         ':device': { S: deviceId },
                     },
-                    ScanIndexForward: false,
+                    ScanIndexForward: true,
                     Limit: limit,
                 })
 
@@ -195,9 +196,7 @@ export const handler = async (event) => {
                     })
                     const timestamp = item?.reading_ts?.S
                     return timestamp ? { timestamp, values } : null
-                })
-                    .filter(Boolean)
-                    .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+                }).filter(Boolean)
 
                 const setCookie = (headerKey || queryKey)
                     ? `api_key=${encodeURIComponent(headerKey || queryKey)}; HttpOnly; Secure; Path=/; SameSite=Lax; Max-Age=2592000`

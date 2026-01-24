@@ -1,5 +1,5 @@
 import * as d3 from 'd3'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 type FieldType = 'number' | 'duration' | 'boolean'
@@ -10,6 +10,10 @@ type PlotSettings = {
   default?: boolean
   style?: ChartStyle
   unit?: string
+  // Backend returns snake_case
+  display_unit?: string
+  display_factor?: number
+  // Optional camelCase aliases for compatibility
   displayUnit?: string
   displayFactor?: number
 }
@@ -50,6 +54,9 @@ type Series = {
   convertNote?: string
   side: 'left' | 'right'
 }
+
+// Chart is dual-axis, so only two simultaneous series are supported
+const MAX_SERIES = 2
 
 const pad2 = (v: string) => (v.length === 1 ? `0${v}` : v || '00')
 
@@ -98,9 +105,20 @@ const ChartSvg = ({ series }: { series: Series[] }) => {
   const yTicksLeft: number[] = leftScale ? leftScale.ticks(5) : []
   const yTicksRight: number[] = rightScale ? rightScale.ticks(5) : []
   const formatTime = d3.timeFormat('%m-%d %H:%M')
+  const xStartLabel = formatTime(xDomain[0])
+  const xEndLabel = formatTime(xDomain[1])
+  const totalPoints = allPoints.length
+  const chartLabel = `Time series chart with ${plotted.length} series from ${xStartLabel} to ${xEndLabel}, showing ${totalPoints} data point${totalPoints === 1 ? '' : 's'}.`
 
   return (
-    <svg className="chart-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Data chart">
+    <svg
+      className="chart-svg"
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      aria-labelledby="chart-title chart-desc"
+    >
+      <title id="chart-title">Recent readings</title>
+      <desc id="chart-desc">{chartLabel}</desc>
       <rect x={0} y={0} width={width} height={height} rx={12} className="chart-surface" />
 
       {yTicksLeft.map((tick: number) => {
@@ -123,11 +141,14 @@ const ChartSvg = ({ series }: { series: Series[] }) => {
             minGap = Math.min(minGap, xPositions[i] - xPositions[i - 1])
           }
           const barWidth = Math.max(6, Math.min(48, (Number.isFinite(minGap) ? minGap : innerWidth / Math.max(s.points.length, 1)) * 0.65))
+          const zeroYRaw = scale(0)
+          const baselineY = Number.isFinite(zeroYRaw) ? Math.min(Math.max(zeroYRaw, paddingY), height - paddingY) : height - paddingY
           return s.points.map((p, idx) => {
             const centeredX = xScale(p.ts) - barWidth / 2
             const x = Math.min(Math.max(centeredX, paddingX), width - paddingX - barWidth)
-            const y = scale(p.value)
-            const h = height - paddingY - y
+            const valueY = scale(p.value)
+            const y = Math.min(valueY, baselineY)
+            const h = Math.abs(valueY - baselineY)
             return <rect key={`${s.field.name}-bar-${p.ts.getTime()}-${idx}`} x={x} y={y} width={barWidth} height={h} className="chart-bar" style={{ stroke: s.color, fill: `${s.color}33` }} />
           })
         }
@@ -187,7 +208,6 @@ function App() {
   const [readingsError, setReadingsError] = useState<string | null>(null)
   const [isLoadingReadings, setIsLoadingReadings] = useState(false)
   const [selectedFieldNames, setSelectedFieldNames] = useState<string[]>([])
-  const maxSeries = 2
   const inputRefs = useRef<Record<string, HTMLInputElement | HTMLSelectElement | null>>({})
 
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined
@@ -216,10 +236,12 @@ function App() {
     }
 
     setSelectedFieldNames((current) => {
-      const validCurrent = current.filter((name) => chartableFields.some((f) => f.name === name))
+      const validCurrent = current
+        .filter((name) => chartableFields.some((f) => f.name === name))
+        .slice(0, MAX_SERIES)
       if (validCurrent.length) return validCurrent
       const defaults = chartableFields.filter((f) => f.plot?.default).map((f) => f.name)
-      if (defaults.length) return defaults
+      if (defaults.length) return defaults.slice(0, MAX_SERIES)
       return [chartableFields[0].name]
     })
   }, [chartableFields])
@@ -274,7 +296,7 @@ function App() {
     return { data, errors }
   }
 
-  const fetchReadings = async () => {
+  const fetchReadings = useCallback(async () => {
     setIsLoadingReadings(true)
     setReadingsError(null)
 
@@ -316,12 +338,11 @@ function App() {
     } finally {
       setIsLoadingReadings(false)
     }
-  }
+  }, [apiBaseUrl])
 
   useEffect(() => {
     fetchReadings()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [fetchReadings])
 
   const sendToBackend = async () => {
     if (!fields.length) {
@@ -371,15 +392,15 @@ function App() {
 
   const seriesList = useMemo(() => {
     const palette = d3.schemeTableau10 || ['#4ce0b3', '#4cc3e0', '#e0c34c', '#e04c7f', '#7b6cff']
-    return selectedFieldNames.slice(0, maxSeries).map((name, idx) => {
+    return selectedFieldNames.slice(0, MAX_SERIES).map((name, idx) => {
       const field = chartableFields.find((f) => f.name === name)
       if (!field) return null
       const unitStored = field.plot?.unit || (field.type === 'duration' ? 'minutes' : undefined)
-      const unitDisplay = field.plot?.displayUnit ?? (field.plot as { display_unit?: string } | undefined)?.display_unit
-      const factorRaw = field.plot?.displayFactor ?? (field.plot as { display_factor?: number } | undefined)?.display_factor
+      const unitDisplay = field.plot?.display_unit ?? field.plot?.displayUnit
+      const factorRaw = field.plot?.display_factor ?? field.plot?.displayFactor
       const factor = typeof factorRaw === 'number' && Number.isFinite(factorRaw) ? factorRaw : 1
       const unitLabel = unitDisplay || unitStored || undefined
-      const convertNote = unitDisplay && unitStored && unitDisplay !== unitStored ? `${unitStored}→${unitDisplay}` : unitLabel
+      const convertNote = unitDisplay && unitStored && unitDisplay !== unitStored ? `${unitStored}→${unitDisplay}` : undefined
       const style: ChartStyle = field.plot?.style ?? 'line'
       const color = palette[idx % palette.length]
       const points = readings
@@ -510,7 +531,7 @@ function App() {
                   <div className="chart-checkboxes">
                     {chartableFields.map((field) => {
                       const checked = selectedFieldNames.includes(field.name)
-                      const disableAdd = !checked && selectedFieldNames.length >= maxSeries
+                      const disableAdd = !checked && selectedFieldNames.length >= MAX_SERIES
                       return (
                         <label key={field.name} className={`chart-checkbox${disableAdd ? ' disabled' : ''}`}>
                           <input
@@ -520,7 +541,7 @@ function App() {
                             onChange={() => {
                               setSelectedFieldNames((prev) => {
                                 if (checked) return prev.filter((name) => name !== field.name)
-                                if (prev.length >= maxSeries) return prev
+                                if (prev.length >= MAX_SERIES) return prev
                                 return [...prev, field.name]
                               })
                             }}
@@ -533,7 +554,7 @@ function App() {
                 </div>
 
                 <div className="chart-tags">
-                  <span className="pill">Series: {selectedFieldNames.length} / {maxSeries}</span>
+                  <span className="pill">Series: {selectedFieldNames.length} / {MAX_SERIES}</span>
                   <span className="pill">Points: {totalPoints}</span>
                 </div>
 
@@ -554,13 +575,16 @@ function App() {
 
               <div className="chart-foot">
                 <div className="chart-legend">
-                  {seriesList.map((s) => (
-                    <span key={s.field.name} className="legend-item">
-                      <span className="legend-swatch" style={{ background: s.color }} />
-                      <span className="legend-text">{s.field.name}</span>
-                      <span className="legend-meta">{s.style}{s.convertNote ? ` • ${s.convertNote}` : s.unitLabel ? ` • ${s.unitLabel}` : ''} • {s.side} y-axis</span>
-                    </span>
-                  ))}
+                  {seriesList.map((s) => {
+                    const metaParts = [s.style, s.convertNote || s.unitLabel, `${s.side} y-axis`].filter(Boolean)
+                    return (
+                      <span key={s.field.name} className="legend-item">
+                        <span className="legend-swatch" style={{ background: s.color }} />
+                        <span className="legend-text">{s.field.name}</span>
+                        <span className="legend-meta">{metaParts.join(' • ')}</span>
+                      </span>
+                    )
+                  })}
                   {seriesList.length === 0 && <span className="hint">Select at least one series.</span>}
                 </div>
                 <p className="hint">Showing {totalPoints} points across {seriesList.length} series</p>
