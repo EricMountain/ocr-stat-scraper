@@ -1,6 +1,91 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap');
 
 :root {
+  --bg: #f4f7fb;
+  --panel: #ffffff;
+  --panel-muted: #f2f4f8;
+  --border: #d7deea;
+  --text: #13233a;
+  --muted: #5f7088;
+  --accent: #0f8b8d;
+  --accent-strong: #0b6e70;
+  --code: #eef2f9;
+  --shadow: 0 12px 40px rgba(17, 36, 61, 0.12);
+  --bg-gradient:
+    radial-gradient(circle at 20% 20%, rgba(15, 139, 141, 0.12), transparent 32%),
+    radial-gradient(circle at 80% 0%, rgba(11, 110, 112, 0.12), transparent 28%),
+    linear-gradient(135deg, #eaf2ff 0%, #f5f7fb 60%, #eef4ff 100%);
+  --panel-gradient: linear-gradient(135deg, #ffffff, #f1f5fb);
+  --chart-surface: #eef4ff;
+  --chart-grid: rgba(17, 36, 61, 0.18);
+  --chart-grid-vertical: rgba(17, 36, 61, 0.12);
+  --chart-point-stroke: #ffffff;
+  --chart-bar-fill: rgba(15, 139, 141, 0.16);
+  --button-primary-text: #041019;
+  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light;
+  background-color: var(--bg);
+  color: var(--text);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #040915;
+    --panel: #0e1726;
+    --panel-muted: #111d2f;
+    --border: #1b2a41;
+    --text: #e6edf7;
+    --muted: #9fb3d1;
+    --accent: #4ce0b3;
+    --accent-strong: #2ed19f;
+    --code: #0c1220;
+    --shadow: 0 16px 60px rgba(0, 0, 0, 0.35);
+    --bg-gradient:
+      radial-gradient(circle at 20% 20%, rgba(76, 224, 179, 0.12), transparent 35%),
+      radial-gradient(circle at 80% 0%, rgba(46, 209, 159, 0.12), transparent 30%),
+      linear-gradient(135deg, #050b16 0%, #0b1220 60%, #050b16 100%);
+    --panel-gradient: linear-gradient(135deg, #101b2d, #0d1727);
+    --chart-surface: #0c1624;
+    --chart-grid: rgba(159, 179, 209, 0.25);
+    --chart-grid-vertical: rgba(159, 179, 209, 0.18);
+    --chart-point-stroke: #041019;
+    --chart-bar-fill: rgba(76, 224, 179, 0.28);
+    --button-primary-text: #041019;
+    color-scheme: dark;
+  }
+}
+
+[data-theme='light'] {
+  --bg: #f4f7fb;
+  --panel: #ffffff;
+  --panel-muted: #f2f4f8;
+  --border: #d7deea;
+  --text: #13233a;
+  --muted: #5f7088;
+  --accent: #0f8b8d;
+  --accent-strong: #0b6e70;
+  --code: #eef2f9;
+  --shadow: 0 12px 40px rgba(17, 36, 61, 0.12);
+  --bg-gradient:
+    radial-gradient(circle at 20% 20%, rgba(15, 139, 141, 0.12), transparent 32%),
+    radial-gradient(circle at 80% 0%, rgba(11, 110, 112, 0.12), transparent 28%),
+    linear-gradient(135deg, #eaf2ff 0%, #f5f7fb 60%, #eef4ff 100%);
+  --panel-gradient: linear-gradient(135deg, #ffffff, #f1f5fb);
+  --chart-surface: #eef4ff;
+  --chart-grid: rgba(17, 36, 61, 0.18);
+  --chart-grid-vertical: rgba(17, 36, 61, 0.12);
+  --chart-point-stroke: #ffffff;
+  --chart-bar-fill: rgba(15, 139, 141, 0.16);
+  --button-primary-text: #041019;
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
   --bg: #040915;
   --panel: #0e1726;
   --panel-muted: #111d2f;
@@ -11,14 +96,18 @@
   --accent-strong: #2ed19f;
   --code: #0c1220;
   --shadow: 0 16px 60px rgba(0, 0, 0, 0.35);
-  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  background-color: var(--bg);
-  color: var(--text);
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --bg-gradient:
+    radial-gradient(circle at 20% 20%, rgba(76, 224, 179, 0.12), transparent 35%),
+    radial-gradient(circle at 80% 0%, rgba(46, 209, 159, 0.12), transparent 30%),
+    linear-gradient(135deg, #050b16 0%, #0b1220 60%, #050b16 100%);
+  --panel-gradient: linear-gradient(135deg, #101b2d, #0d1727);
+  --chart-surface: #0c1624;
+  --chart-grid: rgba(159, 179, 209, 0.25);
+  --chart-grid-vertical: rgba(159, 179, 209, 0.18);
+  --chart-point-stroke: #041019;
+  --chart-bar-fill: rgba(76, 224, 179, 0.28);
+  --button-primary-text: #041019;
+  color-scheme: dark;
 }
 
 * {
@@ -28,11 +117,10 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(76, 224, 179, 0.12), transparent 35%),
-    radial-gradient(circle at 80% 0%, rgba(46, 209, 159, 0.12), transparent 30%),
-    linear-gradient(135deg, #050b16 0%, #0b1220 60%, #050b16 100%);
+  background: var(--bg-gradient);
+  background-color: var(--bg);
   color: var(--text);
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 h1,
