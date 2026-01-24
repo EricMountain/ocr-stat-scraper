@@ -1,3 +1,3 @@
-# ocr-stat-scraper
+# Stat Scraper
 
-Use OCR to scrape stats and save them to DynamoDB
+Scrape stats and save them to DynamoDB

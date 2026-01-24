@@ -20,9 +20,9 @@ export default defineConfig({
       },
       manifest: {
         id: '/?source=pwa',
-        name: 'OCR Stat Scraper',
-        short_name: 'OCRScraper',
-        description: 'Capture device screens and extract statistics via OCR',
+        name: 'Stat Scraper',
+        short_name: 'StatScraper',
+        description: 'Input statistics, save them to a cloud DB and view charts over time.',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
