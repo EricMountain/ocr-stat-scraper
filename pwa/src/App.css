@@ -510,10 +510,14 @@ button.primary:hover {
   font-size: 11px;
 }
 
+
+.mode-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
 .mode-badge {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
   display: inline-flex;
   align-items: center;
   gap: 10px;

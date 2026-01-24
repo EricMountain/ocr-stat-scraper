@@ -655,18 +655,20 @@ function App() {
         </section>
       </div>
 
-      <button
-        type="button"
-        className="mode-badge"
-        onClick={cycleThemeChoice}
-        aria-label={`Switch color mode (current ${modeLabel})`}
-      >
-        <span className="mode-dot" aria-hidden="true" />
-        <span className="mode-labels" aria-live="polite">
-          <span className="mode-label">{modeLabel} mode</span>
-          <span className="mode-hint">Tap to switch theme</span>
-        </span>
-      </button>
+      <div className="mode-row">
+        <button
+          type="button"
+          className="mode-badge"
+          onClick={cycleThemeChoice}
+          aria-label={`Switch color mode (current ${modeLabel})`}
+        >
+          <span className="mode-dot" aria-hidden="true" />
+          <span className="mode-labels" aria-live="polite">
+            <span className="mode-label">{modeLabel} mode</span>
+            <span className="mode-hint">Tap to switch theme</span>
+          </span>
+        </button>
+      </div>
     </div>
   )
 }
