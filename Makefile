@@ -1,4 +1,4 @@
-LAMBDA_NAME ?= ocr-stat-scraper
+LAMBDA_NAME ?= stat-scraper
 
 .PHONY: build-web sync-dist package terraform-init terraform-plan terraform-apply clean audit-fix
 

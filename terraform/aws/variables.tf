@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "lambda_name" {
   description = "Lambda function name"
   type        = string
-  default     = "ocr-stat-scraper"
+  default     = "stat-scraper"
 }
 
 variable "log_retention_days" {
