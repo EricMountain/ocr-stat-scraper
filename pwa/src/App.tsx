@@ -92,8 +92,8 @@ const ChartSvg = ({ series }: { series: Series[] }) => {
 
   const buildYScale = (pts: ChartPoint[]) => {
     const [minRaw, maxRaw] = d3.extent<ChartPoint, number>(pts, (p: ChartPoint) => p.value)
-    const minBase = minRaw ?? 0
-    const maxBase = maxRaw ?? 1
+    const minBase = Math.min(minRaw ?? 0, 0)
+    const maxBase = Math.max(maxRaw ?? 0, 0)
     const domain = minBase === maxBase ? [minBase - 1, maxBase + 1] : [minBase, maxBase]
     return d3.scaleLinear().domain(domain as [number, number]).nice(5).range([height - paddingY, paddingY])
   }
