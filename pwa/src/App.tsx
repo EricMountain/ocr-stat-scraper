@@ -230,6 +230,15 @@ function App() {
     if (stored && stored !== 'system') return stored
     return getSystemTheme()
   })
+  const [dateRangeStart, setDateRangeStart] = useState<string>(() => {
+    const now = new Date()
+    const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
+    return oneMonthAgo.toISOString().split('T')[0]
+  })
+  const [dateRangeEnd, setDateRangeEnd] = useState<string>(() => {
+    const now = new Date()
+    return now.toISOString().split('T')[0]
+  })
   const inputRefs = useRef<Record<string, HTMLInputElement | HTMLSelectElement | null>>({})
 
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined
@@ -442,6 +451,11 @@ function App() {
 
   const seriesList = useMemo(() => {
     const palette = d3.schemeTableau10 || ['#4ce0b3', '#4cc3e0', '#e0c34c', '#e04c7f', '#7b6cff']
+    const startDate = new Date(dateRangeStart)
+    const endDate = new Date(dateRangeEnd)
+    // Extend end date to include the entire day
+    endDate.setHours(23, 59, 59, 999)
+    
     return selectedFieldNames.slice(0, MAX_SERIES).map((name, idx) => {
       const field = chartableFields.find((f) => f.name === name)
       if (!field) return null
@@ -454,6 +468,10 @@ function App() {
       const style: ChartStyle = field.plot?.style ?? 'line'
       const color = palette[idx % palette.length]
       const points = readings
+        .filter((reading) => {
+          const readingDate = new Date(reading.timestamp)
+          return readingDate >= startDate && readingDate <= endDate
+        })
         .map((reading) => {
           const raw = reading.values[name]
           if (typeof raw === 'number') return { ts: new Date(reading.timestamp), value: raw * factor }
@@ -464,7 +482,7 @@ function App() {
       const side: 'left' | 'right' = idx === 0 ? 'left' : 'right'
       return { field, points, color, style, unitLabel, convertNote, side }
     }).filter(Boolean) as Series[]
-  }, [chartableFields, readings, selectedFieldNames])
+  }, [chartableFields, readings, selectedFieldNames, dateRangeStart, dateRangeEnd])
 
   const totalPoints = seriesList.reduce((acc, s) => acc + s.points.length, 0)
 
@@ -586,6 +604,28 @@ function App() {
           ) : (
             <>
               <div className="chart-controls">
+                <div className="chart-date-range">
+                  <p className="control-label">Date range</p>
+                  <div className="date-inputs">
+                    <label>
+                      <span>From</span>
+                      <input
+                        type="date"
+                        value={dateRangeStart}
+                        onChange={(e) => setDateRangeStart(e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>To</span>
+                      <input
+                        type="date"
+                        value={dateRangeEnd}
+                        onChange={(e) => setDateRangeEnd(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                </div>
+
                 <div className="chart-multiselect">
                   <p className="control-label">Data to plot</p>
                   <div className="chart-checkboxes">

@@ -365,6 +365,56 @@ button.primary:hover {
   min-width: 200px;
 }
 
+.chart-date-range {
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chart-date-range .control-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin: 0;
+}
+
+.date-inputs {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.date-inputs label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.date-inputs label span {
+  color: var(--text);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.date-inputs input[type="date"] {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-muted);
+  color: var(--text);
+  font-size: 14px;
+  min-width: 140px;
+  font-family: inherit;
+}
+
+.date-inputs input[type="date"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(76, 224, 179, 0.1);
+}
+
 .chart-tags {
   display: flex;
   gap: 8px;
