@@ -106,7 +106,8 @@ const ChartSvg = ({ series }: { series: Series[] }) => {
   const xTicks: Date[] = xScale.ticks(5)
   const yTicksLeft: number[] = leftScale ? leftScale.ticks(5) : []
   const yTicksRight: number[] = rightScale ? rightScale.ticks(5) : []
-  const formatTime = d3.timeFormat('%m-%d %H:%M')
+  // Display dates in EU format (dd/mm) and omit time
+  const formatTime = d3.timeFormat('%d/%m')
   const xStartLabel = formatTime(xDomain[0])
   const xEndLabel = formatTime(xDomain[1])
   const totalPoints = allPoints.length
@@ -455,7 +456,7 @@ function App() {
     const endDate = new Date(dateRangeEnd)
     // Extend end date to include the entire day
     endDate.setHours(23, 59, 59, 999)
-    
+
     return selectedFieldNames.slice(0, MAX_SERIES).map((name, idx) => {
       const field = chartableFields.find((f) => f.name === name)
       if (!field) return null
